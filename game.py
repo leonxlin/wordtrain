@@ -7,17 +7,18 @@ class Node:
         self.letter = letter
         self.parent = parent
         self.children = {}
-        self.isEnd = False
+        self.isWordEnd = False
         self.isGoodMove = True
         
         self.depth = 0
-        if parent != None:
+        if parent is not None:
             self.depth = parent.depth + 1
         
     def process_word(self, word):
         if len(word) == 0:
-            self.isEnd = True
-            self.setGood(False)
+            self.isWordEnd = True
+            self.isGoodMove = False
+            self.parent.updateGood()
             return
         
         next_letter = word[0].upper()
@@ -25,14 +26,25 @@ class Node:
             self.children[next_letter] = Node(next_letter, self)
         self.children[next_letter].process_word(word[1:])
 
-    def setGood(self, isGood):
-        if not isGood:
-            self.isGoodMove = False
-        if not self.isGoodMove:
+    def updateGood(self):
+        if self.isWordEnd:
             return
-        if self.parent is not None:
-            self.parent.setGood(not isGood)
         
+        if any([self.children[c].isGoodMove for c in self.children]):
+            self.isGoodMove = False
+        else:
+            self.isGoodMove = True
+
+        if self.parent is not None:
+            self.parent.updateGood()
+
+    def getNode(self, word):
+        if len(word) == 0:
+            return self
+        next_letter = word[0].upper()
+        if next_letter not in self.children:
+            return None
+        return self.children[next_letter].getNode(word[1:])
 
     def example_completion(self):
         nexts = list(self.children.keys())
@@ -44,6 +56,8 @@ class Node:
 class Game:
 
     MAX_OK_WORD = 3
+    EASY_MODE_SEARCH_TRIES = 1
+    HARD_MODE_SEARCH_TRIES = 6
     YN_RESPONSE_DICT = {}
     LETTER_RESPONSE_DICT = {}
     
@@ -53,6 +67,12 @@ class Game:
         self.load_dictionary()
         self.setup_response_dicts()
         self.print_rules()
+
+        print ""
+        if self.prompt("Would you like to play on hard mode? (Y/N) ", Game.YN_RESPONSE_DICT):
+            self.search_tries = Game.HARD_MODE_SEARCH_TRIES
+        else:
+            self.search_tries = Game.EASY_MODE_SEARCH_TRIES
         
 
 
@@ -62,6 +82,7 @@ class Game:
         self.current_letters = ""
 
         print ""
+        
         if self.prompt("Would you like to go first? (Y/N) ", Game.YN_RESPONSE_DICT):
             self.finish(self.human_move())
         else:
@@ -87,21 +108,27 @@ class Game:
         self.current_node = self.current_node.children[letter]
         self.current_letters += letter
 
-        if self.current_node.isEnd and self.current_node.depth > Game.MAX_OK_WORD:
+        if self.current_node.isWordEnd and self.current_node.depth > Game.MAX_OK_WORD:
             print "Uh-oh, you made a word!"
             return False
         
         return self.computer_move()
         
     def computer_move(self):
-        letter = random.choice(list(self.current_node.children.keys()))
+
+        for i in range(self.search_tries):
+            letter = random.choice(list(self.current_node.children.keys()))
+            if self.current_node.children[letter].isGoodMove:
+                break
+
+            
         self.current_node = self.current_node.children[letter]
         self.current_letters += letter
 
         #     "Type in a letter: "
         print "OK. My move:      " + self.current_letters
 
-        if self.current_node.isEnd and self.current_node.depth > Game.MAX_OK_WORD:
+        if self.current_node.isWordEnd and self.current_node.depth > Game.MAX_OK_WORD:
             print "Oops, I made a word!"
             return True
         if len(self.current_node.children) == 0:
@@ -114,7 +141,7 @@ class Game:
         print ""
         print "Rules: We will take turns adding letters to the train."
         print "At any point in time, the letters must be the beginning"
-        print "of some English word. However, the first player to "
+        print "of a common word or proper noun. However, the first to "
         print "complete a word longer than " + str(Game.MAX_OK_WORD) + " letters loses."
         
 
@@ -123,7 +150,7 @@ class Game:
         print "Loading dictionary..."
         for line in open('wordlist.txt').readlines():
             word = line.strip()
-            if len(word) > Game.MAX_OK_WORD:
+            if len(word) > Game.MAX_OK_WORD and word.isalpha() and not word.isupper():
                 self.root.process_word(word)
         print "Dictionary loaded."
 
