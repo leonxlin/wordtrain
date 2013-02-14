@@ -13,7 +13,8 @@ class Node:
         self.depth = 0
         if parent is not None:
             self.depth = parent.depth + 1
-        
+
+    # reads in (the remainder of) a word and expands the trie as necessary
     def process_word(self, word):
         if len(word) == 0:
             self.isWordEnd = True
@@ -26,6 +27,8 @@ class Node:
             self.children[next_letter] = Node(next_letter, self)
         self.children[next_letter].process_word(word[1:])
 
+    # sets self.isGoodMove to True if choosing the letter this node represents is a winning move
+    # also sets isGoodMove appropriately for parent Nodes
     def updateGood(self):
         if self.isWordEnd:
             return
@@ -46,13 +49,13 @@ class Node:
             return None
         return self.children[next_letter].getNode(word[1:])
 
+    # randomly picks a way to travel to a leaf
     def example_completion(self):
         nexts = list(self.children.keys())
         if len(nexts) == 0:
             return self.letter
         return self.letter + self.children[random.choice(nexts)].example_completion()
 
-# class to manage game
 class Game:
 
     MAX_OK_WORD = 3
@@ -74,10 +77,7 @@ class Game:
         else:
             self.search_tries = Game.EASY_MODE_SEARCH_TRIES
         
-
-
     def start(self):        
-
         self.current_node = self.root
         self.current_letters = ""
 
@@ -89,7 +89,6 @@ class Game:
             self.finish(self.computer_move())
 
     def finish(self, human_wins):
-
         if human_wins:
             print "==========  YOU WIN  =========="
         else:
@@ -97,6 +96,7 @@ class Game:
         if self.prompt("Play again? (Y/N) ", Game.YN_RESPONSE_DICT):
             self.start()
 
+    # returns True if the human wins
     def human_move(self):
         letter = self.prompt("Type in a letter: " + self.current_letters, Game.LETTER_RESPONSE_DICT)
 
@@ -113,7 +113,8 @@ class Game:
             return False
         
         return self.computer_move()
-        
+
+    # returns True if the human wins
     def computer_move(self):
 
         for i in range(self.search_tries):
@@ -141,10 +142,9 @@ class Game:
         print ""
         print "Rules: We will take turns adding letters to the train."
         print "At any point in time, the letters must be the beginning"
-        print "of a common word or proper noun. However, the first to "
+        print "of a word longer than " + str(Game.MAX_OK_WORD) +  ". However, the first to "
         print "complete a word longer than " + str(Game.MAX_OK_WORD) + " letters loses."
         
-
     def load_dictionary(self):
         self.root = Node(None, None)
         print "Loading dictionary..."
